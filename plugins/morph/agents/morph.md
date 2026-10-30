@@ -81,6 +81,8 @@ Before closing, ask whether anything from this session would make the next run f
 
 When something does qualify, load the `morph:learnings` skill and follow it: what earns a place, where the draft goes, and how to word it. Never edit `AGENTS.md` or `CLAUDE.md` directly — proposals wait in the review file for the user.
 
+When the agent-maintained section has grown, or proposals have piled up unreviewed, offer `morph:learnings-consolidate` to merge, drop and split — it too only proposes.
+
 ---
 
 ## 3. Subagents

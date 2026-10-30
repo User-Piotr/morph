@@ -257,6 +257,17 @@ proposal to `.claude/claude-md-review.md` in that repository. The next session
 there raises what is still unapplied. Nothing reaches `AGENTS.md` until you move
 it; mark the entry `— APPLIED` when you do. The review file stays local.
 
+### Consolidation
+
+The loop only appends, so ask Morph to "consolidate learnings" now and then. The
+`morph:learnings-consolidate` skill checks the agent-maintained section of
+`AGENTS.md` and the review file against the repository as it is now. It looks for
+duplicates, lines whose path or command is gone, conflicts, events recorded as
+facts and a section that has outgrown one file. It writes one `Consolidation`
+entry to the review file and edits nothing else; a line it cannot verify is
+flagged, not dropped, and a conflict is shown, not resolved. The start hook
+suggests it past 5 pending entries or ~60 bullets / ~8 KB, and runs nothing.
+
 ## Your own plugin
 
 A team adds its own domain as a plugin that depends on `morph`, in a marketplace
