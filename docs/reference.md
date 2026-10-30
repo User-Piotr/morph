@@ -64,6 +64,14 @@ mv devops-core-troubleshooter morph-investigator
 A repository's `## DevOps Conventions (agent-maintained)` section in `AGENTS.md`
 keeps its name.
 
+### Moving or renaming the clone
+
+Close every Claude Code session first. `install.sh` symlinks `~/.claude`
+into the clone, so moving it breaks the links under a running session: it
+silently loses the mutation guards, the sandbox and commit attribution, and
+keeps working without them. After the move, run `./install.sh` from the new
+path to relink, then start a new session.
+
 ### The plugins alone
 
 Without this repository's policy:
