@@ -7,6 +7,8 @@ description: How to propose durable learnings for a repository's AGENTS.md. Use 
 
 Read this when Step 6 of `morph.md` has found something worth recording. It holds what qualifies, where the draft goes, and how to word it. The draft is always a proposal for the user to review — never a direct edit to `AGENTS.md` or `CLAUDE.md`.
 
+To merge duplicates, drop stale lines or split a grown section, use `morph:learnings-consolidate` — this skill only appends.
+
 ## What qualifies
 
 - Verified commands with their exact path/context; conventions and patterns confirmed this session; gotchas and how they were resolved; a short imperative rule whenever you or a subagent did something that should not happen again.
