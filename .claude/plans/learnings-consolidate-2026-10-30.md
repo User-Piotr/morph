@@ -69,9 +69,9 @@ The skill edits nothing else. Applying it is the normal path: the user approves,
 
 - Fixture run, headless, with `--plugin-dir ./plugins/morph --agent morph:morph` and the prompt "consolidate learnings in this repository". Check that:
   - every planted case appears under the right action, with evidence;
-  - `git -C <fixture> diff` shows only `.claude/claude-md-review.md` changed;
-  - the new heading passes the pending hook's dated-heading count.
-- `bash -n` and `shellcheck` on `learnings-pending.sh`. Run the pending hook on the fixture and check that it prints the suggestion only past the thresholds.
+  - nothing but the review file changed: compare `git -C <fixture> status --porcelain --ignored` and a checksum of `.claude/claude-md-review.md` before and after. The review file is git-ignored and new files are untracked, so `git diff` alone proves nothing;
+  - a headless run returns `PROPOSAL` and writes nothing, so paste the returned entry under the review file's title and check that the pending hook counts it.
+- `bash -n` and `shellcheck` (in CI, if not installed locally) on `learnings-pending.sh`. Run the pending hook on fixture variants: below every threshold; more than 5 pending; more than 60 bullets with no review file; more than 8 KB. The suggestion prints only in the last three.
 - `claude plugin validate plugins/morph`.
 - One real repository with a populated section (e.g. `gitops-apps-mcd`): run the skill, review the proposal by hand, and apply one item through the normal path.
 

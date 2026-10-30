@@ -21,7 +21,6 @@ REPO="$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)"
 [[ -n "$REPO" ]] || exit 0
 
 REVIEW="$REPO/.claude/claude-md-review.md"
-[[ -f "$REVIEW" ]] || exit 0
 
 # Entry headings look like `## 2026-09-12 — title`; applied ones carry APPLIED.
 # Count only DATED headings: a file titled `## Proposed learnings` would
