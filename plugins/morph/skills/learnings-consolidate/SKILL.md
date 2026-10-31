@@ -55,4 +55,4 @@ Under the heading:
 
 Cap one run at about 30 items. Say what was left for the next run, ordered by confidence, so the strongest findings are not the ones cut.
 
-Run headlessly, you do not write the file (see "Where the draft goes" in `morph:learnings`): return the entry as your whole reply, preceded by a line `PROPOSAL`, or a line `NOTHING` and one sentence on why.
+In a headless run (`claude -p`) the edit to the review file is refused, so do not attempt it and do not ask for approval nobody can give: return the entry as your whole reply, preceded by a line `PROPOSAL`, or a line `NOTHING` and one sentence on why. Put open questions, such as which side of a conflict to keep, inside the entry.
