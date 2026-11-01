@@ -21,13 +21,32 @@ REPO="$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)"
 [[ -n "$REPO" ]] || exit 0
 
 REVIEW="$REPO/.claude/claude-md-review.md"
-[[ -f "$REVIEW" ]] || exit 0
 
 # Entry headings look like `## 2026-09-12 — title`; applied ones carry APPLIED.
 # Count only DATED headings: a file titled `## Proposed learnings` would
 # otherwise read as one pending entry forever, a reminder nobody can clear.
 PENDING="$(grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' "$REVIEW" 2>/dev/null | grep -vc 'APPLIED')" || PENDING=0
-[[ "$PENDING" -gt 0 ]] || exit 0
 
-printf '%s unapplied learnings proposal(s) sit in .claude/claude-md-review.md, queued by earlier sessions in this repository. Nothing there is in effect until a human moves it into AGENTS.md. Raise them when the current task reaches a natural pause — summarise each in a line and ask whether to apply, edit, or drop it. Do not apply them unprompted. Compare each against what AGENTS.md says now: an entry whose content is already there was applied and never marked, so offer to append " — APPLIED" to its heading instead of raising it again next session.\n' "$PENDING"
+# Suggest consolidation, never run it: more than 5 unreviewed proposals, or an
+# agent-maintained section past ~60 bullets or ~8 KB. Sections are the
+# `## ... (agent-maintained)` headings of AGENTS.md, up to the next `## `.
+BULLETS=0
+BYTES=0
+if [[ -f "$REPO/AGENTS.md" ]]; then
+  read -r BULLETS BYTES < <(awk '
+    /^## / { on = ($0 ~ /\(agent-maintained\)/); next }
+    on { bytes += length($0) + 1; if ($0 ~ /^[-*] /) bullets++ }
+    END { print bullets + 0, bytes + 0 }' "$REPO/AGENTS.md")
+fi
+SUGGEST=""
+if [[ "$PENDING" -gt 5 || "${BULLETS:-0}" -gt 60 || "${BYTES:-0}" -gt 8192 ]]; then
+  SUGGEST="The agent-maintained memory has grown (${PENDING} pending, ${BULLETS} bullets, ${BYTES} bytes); suggest running morph:learnings-consolidate when the task pauses, and do not run it unprompted."
+fi
+[[ "$PENDING" -gt 0 || -n "$SUGGEST" ]] || exit 0
+
+if [[ "$PENDING" -gt 0 ]]; then
+
+  printf '%s unapplied learnings proposal(s) sit in .claude/claude-md-review.md, queued by earlier sessions in this repository. Nothing there is in effect until a human moves it into AGENTS.md. Raise them when the current task reaches a natural pause — summarise each in a line and ask whether to apply, edit, or drop it. Do not apply them unprompted. Compare each against what AGENTS.md says now: an entry whose content is already there was applied and never marked, so offer to append " — APPLIED" to its heading instead of raising it again next session.\n' "$PENDING"
+fi
+[[ -z "$SUGGEST" ]] || printf '%s\n' "$SUGGEST"
 exit 0
