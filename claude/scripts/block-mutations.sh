@@ -97,7 +97,20 @@ eval "$FIELDS"
 # headless ones, and a fork that renamed them silently lost the deny.
 # "morph:morph" is the plugin's name for the main agent; "devops"
 # and "devops-core:devops" stay until every machine has migrated to morph.
+# The list can grow: a main session started as another agent (the `agent` key
+# overridden per repository) would otherwise be read as headless and denied
+# every live write. The user opts in by naming such agents, space-separated and
+# exact (no globs, no prefixes), in MORPH_INTERACTIVE_AGENTS, set in `env` of
+# claude/settings.json or .claude/settings.local.json, or in their own shell.
+# The agent_id check stays first, so no list entry can unblock a subagent.
 INTERACTIVE_AGENTS=("devops" "devops-core:devops" "morph:morph")
+# read -a splits on whitespace without globbing; empty words vanish.
+EXTRA_INTERACTIVE_AGENTS=()
+_extra="${MORPH_INTERACTIVE_AGENTS-}"
+read -ra EXTRA_INTERACTIVE_AGENTS <<<"${_extra//$'\n'/ }" || true
+for i in ${EXTRA_INTERACTIVE_AGENTS[@]+"${EXTRA_INTERACTIVE_AGENTS[@]}"}; do
+  INTERACTIVE_AGENTS+=("$i")
+done
 IS_HEADLESS=false
 if [[ -n "$AGENT_ID" ]]; then
   IS_HEADLESS=true

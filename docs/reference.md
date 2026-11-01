@@ -107,6 +107,12 @@ Every session starts as `morph:morph` (`"agent"` in `settings.json`). Drop the
 key for a stock session, or override it per repository in
 `.claude/settings.local.json`.
 
+An overriding main agent must also be named in `MORPH_INTERACTIVE_AGENTS`, a
+space-separated list of exact agent names (no globs, no prefixes) set in `env`
+of `claude/settings.json` or `.claude/settings.local.json`. Without it the
+guards read the session as a subagent and deny every live write and publish.
+Subagents are denied whatever the list says.
+
 How a domain reaches the agents: `morph` itself knows no tools and no live
 systems. When the session or a subagent starts, the enabled domain plugin's
 `brief.sh` returns a short brief (`hookSpecificOutput.additionalContext`) that
@@ -237,6 +243,13 @@ review file to the global gitignore; API keys live in `.env`, ignored too.
   guard alone, since a prefix rule would also prompt on every dry-run.
 - `block-mcp-mutations.sh` does for MCP tools what `block-mutations.sh` does
   for Bash, judged by tool name.
+- Both guards treat the built-in main agents as interactive. A main session
+  started as any other agent is read as headless and denied, unless its name
+  is listed in `MORPH_INTERACTIVE_AGENTS` (exact names, space-separated). The
+  list only turns a deny into an ask for a top-level session; any subagent is
+  denied regardless. A headless `claude -p --agent X` with a listed `X` also
+  gets an ask, so list only agents you drive, and set the variable only where
+  agents cannot write it.
 - Both log each decision to `~/.claude/logs/`, recording the judged binary or
   tool name, never the full command line.
 - `bash claude/tests/guards.sh` runs both guards against a table of real
