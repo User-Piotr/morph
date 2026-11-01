@@ -17,6 +17,9 @@ CLAUDE_CONFIG_DIR="$(mktemp -d)"
 export CLAUDE_CONFIG_DIR
 trap 'rm -rf "$CLAUDE_CONFIG_DIR"' EXIT
 
+# A value inherited from the caller's shell would colour every row.
+unset MORPH_INTERACTIVE_AGENTS
+
 FAIL=0
 PASS=0
 
@@ -149,6 +152,24 @@ b deny "sub:morph:investigator"            "kubectl apply -f x.yaml"
 b deny "top:morph:anything-else"           "git push origin main"
 # The old plugin's names are look-alikes now and fail closed.
 b ask  "top:devops-core:devops"            "git push origin main"
+
+# MORPH_INTERACTIVE_AGENTS adds exact names to the interactive list. Each row
+# sets it as a prefix assignment, which lasts for that one call and cannot leak.
+MORPH_INTERACTIVE_AGENTS="team:lead" b ask  "top:team:lead"         "git push origin main"
+MORPH_INTERACTIVE_AGENTS="team:lead" m ask  "top:team:lead"         mcp__ado__repo_pull_request_write
+MORPH_INTERACTIVE_AGENTS="team:lead" b deny "sub:team:lead"         "git push origin main"
+MORPH_INTERACTIVE_AGENTS="team:lead" m deny "sub:team:lead"         mcp__ado__repo_pull_request_write
+MORPH_INTERACTIVE_AGENTS="team:lead" b deny "top:team:lead-x"       "git push origin main"
+MORPH_INTERACTIVE_AGENTS="team:lead" m deny "top:team:lead-x"       mcp__ado__repo_pull_request_write
+MORPH_INTERACTIVE_AGENTS="team:lead" b deny "top:team"              "git push origin main"
+MORPH_INTERACTIVE_AGENTS="team:lead" m deny "top:team"              mcp__ado__repo_pull_request_write
+MORPH_INTERACTIVE_AGENTS="team:*"    b deny "top:team:lead"         "git push origin main"
+MORPH_INTERACTIVE_AGENTS="  team:lead  other " b ask "top:other"    "git push origin main"
+MORPH_INTERACTIVE_AGENTS="  team:lead  other " m ask "top:team:lead" mcp__ado__repo_pull_request_write
+MORPH_INTERACTIVE_AGENTS="" b deny "top:team:lead"                  "git push origin main"
+# Unset: today's behaviour.
+b deny "top:team:lead"                                              "git push origin main"
+m deny "top:team:lead"                                              mcp__ado__repo_pull_request_write
 
 # --- Bash: bad input fails closed --------------------------------------------
 check deny "$(printf 'not json' | verdict "$BASH_GUARD")" "bash invalid JSON"
