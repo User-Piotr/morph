@@ -17,7 +17,9 @@
 #   1. A shell-shaped tool (execute_shell_command, run_terminal, ...) is judged
 #      even on an allowlisted server: a server trusted for reads is not trusted
 #      to hand out a shell that bypasses both guards and the sandbox.
-#   2. An allowlisted server passes.
+#   2. An allowlisted server passes: the built-in list, a server the user names
+#      in MORPH_READ_ONLY_SERVERS, or a plugin server its plugin declares
+#      read-only (see below). None of them overrides check 1.
 #   3. A write marker anywhere in the tool name asks.
 #   4. A read marker passes. Checked after writes, so get_and_delete is a write.
 #   5. Anything else asks: an unclassified tool gets no free pass.
@@ -42,6 +44,24 @@ READ_ONLY_SERVERS=(
   "headroom"
   "serena"
 )
+# The user can extend the list with servers they trust, space-separated and exact
+# (no globs, no prefixes), in MORPH_READ_ONLY_SERVERS: `env` of
+# claude/settings.json or .claude/settings.local.json, managed settings, or their
+# own shell. Same pattern as MORPH_INTERACTIVE_AGENTS below. It never overrides
+# the shell-marker check, which runs first.
+EXTRA_READ_ONLY_SERVERS=()
+_extra_servers="${MORPH_READ_ONLY_SERVERS-}"
+read -ra EXTRA_READ_ONLY_SERVERS <<<"${_extra_servers//$'\n'/ }" || true
+for i in ${EXTRA_READ_ONLY_SERVERS[@]+"${EXTRA_READ_ONLY_SERVERS[@]}"}; do
+  READ_ONLY_SERVERS+=("$i")
+done
+
+# Marketplaces whose plugins may declare their own servers read-only, in
+# <installPath>/.claude-plugin/read-only-servers.json. Space-separated, exact
+# names. Unset means "morph"; set but empty trusts none. Anyone who can publish
+# to a trusted marketplace can mark a server read-only, so trust only reviewed ones.
+TRUSTED_MARKETPLACES="${MORPH_TRUSTED_MARKETPLACES-morph}"
+TRUSTED_MARKETPLACES="${TRUSTED_MARKETPLACES//$'\n'/ }"
 
 # `execute` alone is left off: execute_query and execute_workflow are writes,
 # not shells, and are caught by WRITE_MARKERS with an honest reason.
@@ -142,6 +162,49 @@ for s in "${READ_ONLY_SERVERS[@]}"; do
     exit 0
   fi
 done
+
+# Declared read-only by the plugin that provides the server. Only plugin servers
+# (plugin_<plugin>_<server>) not already trusted get here. Every failure to read,
+# parse or match falls through to the marker rules: more prompts, never fewer.
+# Trust needs: installed_plugins.json version 2; exactly one <plugin> name that
+# splits the segment; every installed copy of that plugin from a trusted
+# marketplace; and every copy's declaration file listing <server> exactly.
+if [[ "$SERVER" == plugin_* ]]; then
+  INSTALLED="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
+  if [[ -r "$INSTALLED" ]] && mapfile -t DECL < <(jq -r --arg seg "$SERVER" --arg tm "$TRUSTED_MARKETPLACES" '
+      ($tm | split(" ") | map(select(length > 0))) as $trusted
+      | if .version != 2 then empty else
+          [ (.plugins // {}) | to_entries[]
+            | (.key | capture("^(?<p>.+)@(?<m>[^@]+)$")?) as $k
+            | {p: $k.p, m: $k.m, v: .value} ] as $all
+          | [ $all[] | select(.p as $p | ($seg | startswith("plugin_" + $p + "_"))
+                and (($seg | ltrimstr("plugin_" + $p + "_")) | length > 0)) | .p ] | unique as $names
+          | if ($names | length) != 1 then empty else
+              $names[0] as $p
+              | ($all | map(select(.p == $p))) as $inst
+              | if ($inst | all(.m as $m | $trusted | index($m) != null)) then
+                  # Built whole before anything is printed: an error here must
+                  # leave no partial output for mapfile, which cannot see jq fail.
+                  [ $inst[] | .v | if type == "array" and length > 0 then .[] else error("no install") end
+                    | .installPath | if type == "string" and length > 0 then . else error("no path") end
+                  ] as $paths
+                  | ($seg | ltrimstr("plugin_" + $p + "_")),
+                    ($inst | map(.p + "@" + .m) | join(",")),
+                    $paths[]
+                else empty end
+            end
+        end' "$INSTALLED" 2>/dev/null) && [[ ${#DECL[@]} -ge 3 ]]; then
+    DECL_SERVER="${DECL[0]}"
+    DECL_FILES=()
+    for i in "${DECL[@]:2}"; do DECL_FILES+=("$i/.claude-plugin/read-only-servers.json"); done
+    if jq -en --arg s "$DECL_SERVER" '
+        [inputs | (.servers | type == "array") and any(.servers[]; . == $s)]
+        | length > 0 and all' "${DECL_FILES[@]}" >/dev/null 2>&1; then
+      log "allow (declared read-only by ${DECL[1]})"
+      exit 0
+    fi
+  fi
+fi
 
 if [[ "$TOOL" =~ $WRITE_MARKERS ]]; then
   verdict "MCP tool $TOOL_NAME looks like a write. Confirm it before it runs."
