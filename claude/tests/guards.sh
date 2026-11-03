@@ -18,7 +18,7 @@ export CLAUDE_CONFIG_DIR
 trap 'rm -rf "$CLAUDE_CONFIG_DIR"' EXIT
 
 # A value inherited from the caller's shell would colour every row.
-unset MORPH_INTERACTIVE_AGENTS
+unset MORPH_INTERACTIVE_AGENTS MORPH_READ_ONLY_SERVERS MORPH_TRUSTED_MARKETPLACES
 
 FAIL=0
 PASS=0
@@ -220,6 +220,86 @@ m deny  "sub:morph:investigator" mcp__plugin_other_context7__create_page
 m allow ""                       mcp__plugin_devops-core_context7__create_page
 m ask   "top:morph:morph"        mcp__ado__repo_pull_request_write
 m deny  "top:morph:anything-else" mcp__ado__repo_pull_request_write
+
+# --- MCP: servers a plugin declares read-only ----------------------------------
+# Fixtures live under the per-run CLAUDE_CONFIG_DIR. decl DIR SERVER... writes a
+# plugin's declaration file; installed JSON writes installed_plugins.json.
+PLUGINS="$CLAUDE_CONFIG_DIR/plugins"
+mkdir -p "$PLUGINS"
+decl() { local d="$PLUGINS/$1"; shift; mkdir -p "$d/.claude-plugin"
+  jq -cn '{servers: $ARGS.positional}' --args "$@" >"$d/.claude-plugin/read-only-servers.json"; }
+installed() { printf '%s\n' "$1" >"$PLUGINS/installed_plugins.json"; }
+ent() { printf '[{"scope":"user","installPath":"%s/%s","version":"1"}]' "$PLUGINS" "$1"; }
+DL=mcp__plugin_grafana_grafana__generate_deeplink   # no read marker in the name
+decl grafana grafana; decl grafana-other grafana; decl undeclared other
+decl a b_c; decl a_b c
+
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":$(ent grafana)}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m allow ""        $DL
+MORPH_TRUSTED_MARKETPLACES=otcf m allow "sub:x"   $DL
+m ask  ""      $DL
+m deny "sub:x" $DL
+MORPH_TRUSTED_MARKETPLACES="other" m ask ""       $DL
+MORPH_TRUSTED_MARKETPLACES="otcf other" m allow "" $DL
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         mcp__plugin_grafana_grafana__run_shell
+MORPH_TRUSTED_MARKETPLACES=otcf m deny "sub:x"    mcp__plugin_grafana_grafana__run_shell
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         mcp__plugin_grafana_grafana2__generate_deeplink
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         mcp__plugin_grafana_other__generate_deeplink
+# a write-shaped name on a declared server is trusted wholesale, like any allowlisted server
+MORPH_TRUSTED_MARKETPLACES=otcf m allow ""        mcp__plugin_grafana_grafana__delete_dashboard
+
+# (c) the same plugin from a second, untrusted marketplace voids trust
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":$(ent grafana),\"grafana@other\":$(ent grafana-other)}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+MORPH_TRUSTED_MARKETPLACES=otcf m deny "sub:x"    $DL
+MORPH_TRUSTED_MARKETPLACES="otcf other" m allow "" $DL
+
+# (d) trusted marketplace, server not declared
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":$(ent undeclared)}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+
+# (f) unreadable or unexpected installed_plugins.json
+installed "{\"version\":3,\"plugins\":{\"grafana@otcf\":$(ent grafana)}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+installed "not json {"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+installed "{\"version\":2,\"plugins\":[]}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+rm -f "$PLUGINS/installed_plugins.json"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+MORPH_TRUSTED_MARKETPLACES=otcf m deny "sub:x"    $DL
+
+# (h) ambiguous split: a@otcf declares b_c, a_b@otcf declares c
+installed "{\"version\":2,\"plugins\":{\"a@otcf\":$(ent a),\"a_b@otcf\":$(ent a_b)}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         mcp__plugin_a_b_c__generate_deeplink
+MORPH_TRUSTED_MARKETPLACES=otcf m deny "sub:x"    mcp__plugin_a_b_c__generate_deeplink
+
+# (l) two installs, the second without installPath: partial output must not trust
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":[{\"scope\":\"user\",\"installPath\":\"$PLUGINS/grafana\"},{\"scope\":\"project\"}]}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+MORPH_TRUSTED_MARKETPLACES=otcf m deny "sub:x"    $DL
+# an install whose declaration file is missing voids trust too
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":[{\"installPath\":\"$PLUGINS/grafana\"},{\"installPath\":\"$PLUGINS/nowhere\"}]}}"
+MORPH_TRUSTED_MARKETPLACES=otcf m ask  ""         $DL
+
+# (i) servers the user lists directly, marketplace untrusted
+installed "{\"version\":2,\"plugins\":{\"grafana@otcf\":$(ent undeclared)}}"
+MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m allow ""      $DL
+MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m allow "sub:x" $DL
+MORPH_READ_ONLY_SERVERS="x  plugin_grafana_grafana" m allow "" $DL
+MORPH_READ_ONLY_SERVERS=plugin_grafana_graf    m ask  ""       $DL
+MORPH_READ_ONLY_SERVERS="plugin_grafana_*"     m ask  ""       $DL
+MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m ask  ""       mcp__plugin_grafana_grafana__run_shell
+MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m deny "sub:x"  mcp__plugin_grafana_grafana__run_shell
+
+# (j) an empty MORPH_TRUSTED_MARKETPLACES trusts none; the hardcoded entry stays
+installed "{\"version\":2,\"plugins\":{\"devops@morph\":$(ent devops)}}"
+decl devops aws-documentation other
+DD=mcp__plugin_devops_other__generate_deeplink
+m allow "" $DD                                   # default marketplace is morph
+MORPH_TRUSTED_MARKETPLACES="" m ask  ""   $DD
+MORPH_TRUSTED_MARKETPLACES="" m deny "sub:x" $DD
+MORPH_TRUSTED_MARKETPLACES="" m allow "sub:x" mcp__plugin_devops_aws-documentation__generate_deeplink
 
 echo "passed $PASS, failed $FAIL"
 exit "$FAIL"

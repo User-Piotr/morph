@@ -141,6 +141,32 @@ All three are read-only and on the MCP guard's read-only list:
 
 A plugin's tools are named `mcp__plugin_<plugin>_<server>__<tool>`.
 
+### Trusting more servers
+
+The guard trusts a server wholesale (every tool except shell-shaped ones, which
+are always judged) when it is on its built-in list. Two settings extend that
+list; either one suffices, and neither overrides the shell check. Set them in
+`env` of `claude/settings.json` or `.claude/settings.local.json`, in your own
+shell, or in managed settings for a whole company.
+
+- `MORPH_READ_ONLY_SERVERS` — space-separated, exact server names as they appear
+  in the tool name (`plugin_grafana_grafana`, `ado`). Use this for strict control:
+  you name each server, and nothing else is trusted.
+- `MORPH_TRUSTED_MARKETPLACES` — space-separated, exact marketplace names
+  (default `morph`; set but empty trusts none). A plugin installed from a trusted
+  marketplace may ship `.claude-plugin/read-only-servers.json`,
+  `{"servers": ["grafana"]}`, naming its own servers read-only. Trust holds only
+  if the plugin's name resolves unambiguously, every installed copy of it comes
+  from a trusted marketplace, and every copy declares the server. Any file that
+  cannot be read or parsed means no trust, and the call falls back to the name
+  rules.
+
+Choosing: to keep control, list servers and leave `MORPH_TRUSTED_MARKETPLACES`
+unset or empty. Trust a marketplace only when it ships through reviewed, tagged
+releases, because anyone who can publish to it can mark a write-capable server
+read-only, and auto-update spreads that change. Trusting a marketplace is
+pointless without pinning its updates (see the versioning task).
+
 Traffic reaches the Headroom proxy only in sessions started with
 `headroom wrap claude`; a bare `claude` goes straight to the API. `wrap` writes
 its routing to the repository's untracked `.claude/settings.local.json` and
@@ -346,8 +372,11 @@ subagents treat it as binding. See `plugins/devops/scripts/brief.sh`.
 `morph:investigator` inherits the server's tools and is told to look for a skill
 covering the system under investigation. Read-shaped tool names
 (`search_*`, `get_*`, `query_*`, `list_*`) pass the MCP guard; write-shaped ones
-ask in the main session and are denied to subagents. A server that needs to be
-trusted wholesale goes on `READ_ONLY_SERVERS` in the guard, by pull request here.
+ask in the main session and are denied to subagents. A server whose tools do not
+read that way (`generate_deeplink`) can be trusted wholesale without a pull
+request here: ship `.claude-plugin/read-only-servers.json` listing it, and users
+who trust your marketplace in `MORPH_TRUSTED_MARKETPLACES` get it; others list it
+in `MORPH_READ_ONLY_SERVERS`. See "Trusting more servers" above.
 
 Each user adds the marketplace and switches the plugin on with
 `/plugin marketplace add`, `/plugin install` and `/plugin`. The switch is
