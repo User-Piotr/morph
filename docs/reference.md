@@ -75,9 +75,33 @@ path to relink, then start a new session.
 ### The plugins alone
 
 Without this repository's policy:
-`/plugin marketplace add User-Piotr/morph`, then
+`/plugin marketplace add User-Piotr/morph#stable`, then
 `/plugin install morph@morph` and, for the DevOps knowledge,
 `/plugin install devops@morph` and enable it.
+
+## Versions and updates
+
+The `morph` marketplace is added at `ref: "stable"`, a branch that moves only
+when a release is cut (see [releasing.md](releasing.md)). A pull request to
+`main` reaches no machine until then. Both plugins carry a `version`, and an
+update is detected by comparing versions, so a plugin change ships only with a
+bump; CI checks this against `stable`.
+
+To follow development instead, add the marketplace at `main`:
+`/plugin marketplace add User-Piotr/morph#main`, or run
+`MORPH_MARKETPLACE=User-Piotr/morph#main ./install.sh`.
+
+Every external version is pinned in `versions.env` at the repository root:
+`headroom-ai`, `graphifyy`, the context7 and AWS documentation servers, and
+caveman's marketplace `ref`. `install.sh` reads it directly; the plugin
+manifests and `claude/settings.json` are JSON and keep a copy, which
+`claude/tests/versions.sh` compares in CI. To bump one, change `versions.env`,
+run the check, and fix every copy it names.
+
+`MORPH_TRUSTED_MARKETPLACES` trusts a marketplace's read-only declarations as
+they stand at the version you have. That is sound only when the marketplace ships
+through a channel like this one; do not list a marketplace that floats on a
+default branch.
 
 ## What's inside
 

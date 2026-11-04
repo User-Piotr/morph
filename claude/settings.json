@@ -145,7 +145,8 @@
     "caveman": {
       "source": {
         "source": "github",
-        "repo": "JuliusBrussee/caveman"
+        "repo": "JuliusBrussee/caveman",
+        "ref": "v4.0.1"
       }
     }
   },
