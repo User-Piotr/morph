@@ -23,6 +23,9 @@ jobs:
       - name: guard tests
         run: bash claude/tests/guards.sh
 
+      - name: pinned versions match versions.env
+        run: bash claude/tests/versions.sh
+
   plugin:
     runs-on: ubuntu-latest
     steps:
@@ -37,3 +40,34 @@ jobs:
           claude plugin validate .
           claude plugin validate plugins/morph
           claude plugin validate plugins/devops
+
+  versions:
+    # A plugin change that keeps its version is invisible to machines on the
+    # stable channel: updates are detected by comparing versions.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: plugin version bumped against stable
+        run: |
+          if ! git rev-parse --verify --quiet origin/stable >/dev/null; then
+            echo "origin/stable does not exist yet; nothing to compare against"
+            exit 0
+          fi
+          status=0
+          for dir in plugins/*/; do
+            p=${dir%/}
+            if git diff --quiet origin/stable...HEAD -- "$p"; then
+              continue
+            fi
+            old=$(git show "origin/stable:$p/.claude-plugin/plugin.json" 2>/dev/null | jq -r '.version // empty')
+            new=$(jq -r '.version // empty' "$p/.claude-plugin/plugin.json")
+            if [ -n "$old" ] && [ "$old" = "$new" ]; then
+              echo "::error::$p changed but its version is still $new on origin/stable; bump it in $p/.claude-plugin/plugin.json"
+              status=1
+            fi
+          done
+          exit $status

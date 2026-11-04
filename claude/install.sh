@@ -7,6 +7,9 @@ shopt -s nullglob   # an empty directory must skip its loop, not link a literal 
 CONF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_DIR="$CLAUDE_HOME/.config-backup/$(date +%Y%m%d-%H%M%S)"
+# Every pinned third-party version lives in versions.env at the repository root.
+# shellcheck source=../versions.env
+. "$CONF_DIR/../versions.env"
 
 log()  { printf '  %s\n' "$*"; }
 step() { printf '\n%s\n' "$*"; }
@@ -66,7 +69,9 @@ CORE="morph@morph"
 DOMAIN="devops@morph"
 # Override to test a branch before it is on GitHub, e.g. with a local checkout:
 #   MORPH_MARKETPLACE="$PWD" ./install.sh claude
-MARKETPLACE="${MORPH_MARKETPLACE:-${AGENT_CONFIG_MARKETPLACE:-User-Piotr/morph}}"
+# The default follows the stable channel: it moves only on a tagged release.
+# Follow main instead with MORPH_MARKETPLACE=User-Piotr/morph#main.
+MARKETPLACE="${MORPH_MARKETPLACE:-${AGENT_CONFIG_MARKETPLACE:-User-Piotr/morph#stable}}"
 # Before the rename the marketplace was called agent-config.
 OLD_MARKETPLACE="agent-config"
 
@@ -98,6 +103,33 @@ if claude plugin marketplace list 2>/dev/null | grep -qw "$OLD_MARKETPLACE"; the
   done
   claude plugin marketplace remove "$OLD_MARKETPLACE" >/dev/null && log "removed marketplace $OLD_MARKETPLACE (renamed to morph)"
 fi
+
+# One-time migration to the release channel: a marketplace registered without a
+# ref follows main. Re-add it at the ref; the install loop below restores any
+# plugin the removal took with it. Only for a ref-bearing GitHub spec, so a
+# local-path override is left alone.
+KNOWN_MARKETPLACES="$CLAUDE_HOME/plugins/known_marketplaces.json"
+# Never remove a working marketplace for a ref that does not resolve: before the
+# first release there is no stable branch, and a failed re-add would leave the
+# machine with no marketplace and no plugins. Fall back to the default branch.
+case "$MARKETPLACE" in
+  *#*)
+    MP_REF="${MARKETPLACE#*#}"
+    if ! git ls-remote --exit-code "https://github.com/${MARKETPLACE%%#*}.git" \
+         "refs/heads/$MP_REF" "refs/tags/$MP_REF" >/dev/null 2>&1; then
+      log "ref $MP_REF not found for ${MARKETPLACE%%#*}; staying on the default branch"
+      MARKETPLACE="${MARKETPLACE%%#*}"
+    fi ;;
+esac
+case "$MARKETPLACE" in
+  *#*)
+    if claude plugin marketplace list 2>/dev/null | grep -qw morph \
+       && [ -f "$KNOWN_MARKETPLACES" ] \
+       && [ -z "$(jq -r '.morph.source.ref // empty' "$KNOWN_MARKETPLACES" 2>/dev/null)" ]; then
+      claude plugin marketplace remove morph >/dev/null \
+        && log "marketplace morph followed main; re-adding at ${MARKETPLACE#*#}"
+    fi ;;
+esac
 
 claude plugin marketplace list 2>/dev/null | grep -qw morph \
   || claude plugin marketplace add "$MARKETPLACE" >/dev/null || true
@@ -204,8 +236,19 @@ step "Headroom and skills"
 #
 # `wrap` also registers headroom's MCP server in ~/.claude.json on every run,
 # with the proxy's current port, so nothing here registers it.
-command -v headroom  >/dev/null || uv tool install headroom-ai
-command -v graphify  >/dev/null || { uv tool install graphifyy && graphify install --platform claude; }
+# Pinned in versions.env (read at the top). A different installed version is
+# replaced, up or down, so every machine runs the pin.
+# uv tool list prints "<name> v<version>" per tool.
+pin_tool() {
+  have=$(uv tool list 2>/dev/null | awk -v n="$1" '$1 == n { sub(/^v/, "", $2); print $2 }')
+  [ "$have" = "$2" ] && return 1
+  [ -n "$have" ] && log "$1 $have -> $2"
+  uv tool install --force "$1==$2"
+}
+# pin_tool returns 1 when the pin is already installed, so graphify's skill
+# is registered only after a fresh install or a version change.
+pin_tool headroom-ai "$HEADROOM_VERSION" || true
+if pin_tool graphifyy "$GRAPHIFY_VERSION"; then graphify install --platform claude; fi
 log "start sessions with: headroom wrap claude    verify with: headroom doctor"
 
 step "Done"
