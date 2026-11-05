@@ -30,6 +30,14 @@ them yourself.
    ```bash
    git fetch --tags && git switch --detach vX.Y.Z
    ```
+5. Run `./install.sh`. It runs `claude plugin update` for both plugins itself.
+   Check that both versions in `installed_plugins.json` equal `X.Y.Z` and that
+   `/mcp` shows headroom connected:
+
+   ```bash
+   jq -r '.plugins | to_entries[] | select(.key | endswith("@morph")) | "\(.key) \(.value[0].version)"' \
+     ~/.claude/plugins/installed_plugins.json
+   ```
 
 ## First release (v1.0.0)
 
@@ -44,7 +52,9 @@ jq '.plugins["morph@morph"][0].version' ~/.claude/plugins/installed_plugins.json
 ```
 
 The migration removes the marketplace, which takes `morph@morph` and
-`devops@morph` with it until the installer adds them back. Pick a trial machine
+`devops@morph` with it until the installer adds them back. A machine that kept
+them stays on the old commit until the installer's `claude plugin update`
+moves it; confirm both report `1.0.0`, and that `/mcp` shows headroom connected. Pick a trial machine
 whose context7 key was set with `/plugin configure morph@morph`, not from
 `.env`, and confirm one context7 call still works afterwards. If the key is
 gone, set it again with `/plugin configure` before announcing, and say so in
