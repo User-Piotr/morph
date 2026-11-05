@@ -13,3 +13,4 @@ The repository's own `AGENTS.md` outranks everything here. Read it first.
 - Aurora and OpenSearch: changes to parameter groups, instance classes, engine versions or snapshots can restart or replace a cluster. Say so in the plan.
 - Cost: note changes that scale spend (instance classes, NAT gateways, log retention, cross-AZ traffic).
 - AWS CLI: reads (`describe-*`, `list-*`, `get-*`) are fine. Anything that creates, modifies or deletes is a live mutation: hand the user the exact command.
+
