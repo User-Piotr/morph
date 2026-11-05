@@ -209,8 +209,9 @@ m ask   ""  mcp__unknown__frobnicate
 m deny  "sub:devops-implementer" mcp__ado__repo_pull_request_write
 m deny  "sub:devops-implementer" mcp__serena__execute_shell_command
 m allow "sub:devops-implementer" mcp__serena__replace_content
-# The morph and devops plugins' own MCP servers are trusted by exact name; no
-# other plugin's server, and no extension of these names, gets the same pass.
+# morph's own MCP server is trusted by exact name; no other plugin's server, and
+# no extension of the name, gets the same pass. (devops is trusted through its
+# declaration; see (j). search_documentation passes here as a read anyway.)
 m allow "sub:morph:investigator" mcp__plugin_morph_context7__query-docs
 m allow "sub:morph:investigator" mcp__plugin_devops_aws-documentation__search_documentation
 m ask   ""                       mcp__plugin_other_context7__create_page
@@ -292,14 +293,17 @@ MORPH_READ_ONLY_SERVERS="plugin_grafana_*"     m ask  ""       $DL
 MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m ask  ""       mcp__plugin_grafana_grafana__run_shell
 MORPH_READ_ONLY_SERVERS=plugin_grafana_grafana m deny "sub:x"  mcp__plugin_grafana_grafana__run_shell
 
-# (j) an empty MORPH_TRUSTED_MARKETPLACES trusts none; the hardcoded entry stays
+# (j) an empty MORPH_TRUSTED_MARKETPLACES trusts none, devops included: its
+#     server is no longer hardcoded, only declared
 installed "{\"version\":2,\"plugins\":{\"devops@morph\":$(ent devops)}}"
 decl devops aws-documentation other
 DD=mcp__plugin_devops_other__generate_deeplink
 m allow "" $DD                                   # default marketplace is morph
 MORPH_TRUSTED_MARKETPLACES="" m ask  ""   $DD
 MORPH_TRUSTED_MARKETPLACES="" m deny "sub:x" $DD
-MORPH_TRUSTED_MARKETPLACES="" m allow "sub:x" mcp__plugin_devops_aws-documentation__generate_deeplink
+m allow "sub:x" mcp__plugin_devops_aws-documentation__generate_deeplink   # declared, morph trusted
+MORPH_TRUSTED_MARKETPLACES="" m ask  ""      mcp__plugin_devops_aws-documentation__generate_deeplink
+MORPH_TRUSTED_MARKETPLACES="" m deny "sub:x" mcp__plugin_devops_aws-documentation__generate_deeplink
 
 echo "passed $PASS, failed $FAIL"
 exit "$FAIL"
