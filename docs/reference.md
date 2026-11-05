@@ -96,7 +96,8 @@ Every external version is pinned in `versions.env` at the repository root:
 caveman's marketplace `ref`. `install.sh` reads it directly; the plugin
 manifests and `claude/settings.json` are JSON and keep a copy, which
 `claude/tests/versions.sh` compares in CI. To bump one, change `versions.env`,
-run the check, and fix every copy it names.
+run the check, and fix every copy it names. Tool pins include their extras
+(`HEADROOM_EXTRAS`), also in `versions.env`.
 
 `MORPH_TRUSTED_MARKETPLACES` trusts a marketplace's read-only declarations as
 they stand at the version you have. That is sound only when the marketplace ships

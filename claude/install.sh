@@ -136,9 +136,25 @@ claude plugin marketplace list 2>/dev/null | grep -qw morph \
 
 # morph is the core team. devops is a domain plugin: off by default in the
 # marketplace (defaultEnabled: false), switched on here by settings.json.
+# A present plugin is updated here too: removing a marketplace does not uninstall
+# its plugins, so after a channel change they would stay on the old commit.
+INSTALLED_PLUGINS="$CLAUDE_HOME/plugins/installed_plugins.json"
+plugin_version() {
+  jq -r --arg p "$1" '.plugins[$p][0].version // empty' "$INSTALLED_PLUGINS" 2>/dev/null || true
+}
 for p in "$CORE" "$DOMAIN"; do
   if plugin_present "$p"; then
-    log "$p present (updates arrive through the marketplace's autoUpdate)"
+    before=$(plugin_version "$p")
+    if claude plugin update "$p" >/dev/null 2>&1; then
+      after=$(plugin_version "$p")
+      if [ "$before" != "$after" ]; then
+        log "$p ${before:-?} -> ${after:-?}"
+      else
+        log "$p ${after:-present} (up to date)"
+      fi
+    else
+      log "$p update failed — run: claude plugin update $p"
+    fi
   elif claude plugin install "$p" >/dev/null; then
     log "installed $p"
   else
@@ -236,19 +252,42 @@ step "Headroom and skills"
 #
 # `wrap` also registers headroom's MCP server in ~/.claude.json on every run,
 # with the proxy's current port, so nothing here registers it.
-# Pinned in versions.env (read at the top). A different installed version is
-# replaced, up or down, so every machine runs the pin.
+# Pinned in versions.env (read at the top), extras included: `uv tool install
+# --force` replaces the whole tool environment, so a pin without its extras
+# drops them. A different installed version is replaced, up or down, so every
+# machine runs the pin. A matching version is also reinstalled when the probe
+# module cannot be imported, which repairs an environment that lost its extras.
 # uv tool list prints "<name> v<version>" per tool.
+# Usage: pin_tool <name> <version> [extras] [probe-module]
 pin_tool() {
-  have=$(uv tool list 2>/dev/null | awk -v n="$1" '$1 == n { sub(/^v/, "", $2); print $2 }')
-  [ "$have" = "$2" ] && return 1
-  [ -n "$have" ] && log "$1 $have -> $2"
-  uv tool install --force "$1==$2"
+  local name="$1" version="$2" extras="${3:-}" probe="${4:-}" have spec py
+  spec="$name==$version"
+  [ -n "$extras" ] && spec="${name}[${extras}]==${version}"
+  have=$(uv tool list 2>/dev/null | awk -v n="$name" '$1 == n { sub(/^v/, "", $2); print $2 }')
+  if [ "$have" = "$version" ]; then
+    [ -n "$probe" ] || return 1
+    py="$(uv tool dir 2>/dev/null)/$name/bin/python"
+    # No python at the expected path: say so, but do not reinstall, or an
+    # unfamiliar uv layout would reinstall on every run.
+    if [ ! -x "$py" ]; then
+      log "$name $have: cannot check its extras ($extras), no python at $py"
+      return 1
+    fi
+    "$py" -c "import $probe" >/dev/null 2>&1 && return 1
+    log "$name $have is missing extras ($extras); reinstalling"
+  elif [ -n "$have" ]; then
+    log "$name $have -> $version"
+  fi
+  uv tool install --force "$spec"
 }
-# pin_tool returns 1 when the pin is already installed, so graphify's skill
+# pin_tool returns 1 when the pin is already healthy, so graphify's skill
 # is registered only after a fresh install or a version change.
-pin_tool headroom-ai "$HEADROOM_VERSION" || true
-if pin_tool graphifyy "$GRAPHIFY_VERSION"; then graphify install --platform claude; fi
+pin_tool headroom-ai "$HEADROOM_VERSION" "$HEADROOM_EXTRAS" mcp || true
+HEADROOM_PY="$(uv tool dir 2>/dev/null)/headroom-ai/bin/python"
+if [ ! -x "$HEADROOM_PY" ] || ! "$HEADROOM_PY" -c 'import mcp' >/dev/null 2>&1; then
+  log "headroom MCP extras missing or unverifiable — run: uv tool install --force 'headroom-ai[$HEADROOM_EXTRAS]==$HEADROOM_VERSION'"
+fi
+if pin_tool graphifyy "$GRAPHIFY_VERSION" "$GRAPHIFY_EXTRAS"; then graphify install --platform claude; fi
 log "start sessions with: headroom wrap claude    verify with: headroom doctor"
 
 step "Done"
