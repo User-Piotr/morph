@@ -1,6 +1,6 @@
 {
   "name": "morph",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Domain-free agent team for Claude Code: morph orchestrator, implementer, reviewer and investigator agents, delivery and learnings skills, and the context7 documentation server",
   "userConfig": {
     "context7_api_key": {
