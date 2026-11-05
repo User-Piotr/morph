@@ -138,7 +138,8 @@
     "morph": {
       "source": {
         "source": "github",
-        "repo": "User-Piotr/morph"
+        "repo": "User-Piotr/morph",
+        "ref": "stable"
       },
       "autoUpdate": true
     },
