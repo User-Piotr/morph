@@ -32,13 +32,14 @@ set -uo pipefail
 # edits the implementer is meant to make (serena). Matched on the server
 # segment of the tool name. The match is exact, never a prefix: another plugin's
 # server must not be able to borrow a trusted name (a plugin server is named
-# plugin_<plugin>_<server>, so only the morph and devops plugins themselves can
-# produce these two). The devops-core pair stays until every machine has migrated.
+# plugin_<plugin>_<server>, so only the morph plugin itself can produce
+# plugin_morph_context7). devops declares its server in
+# plugins/devops/.claude-plugin/read-only-servers.json instead (see below).
+# The devops-core pair stays until every machine has migrated.
 READ_ONLY_SERVERS=(
   "context7"
   "awslabs_aws-documentation-mcp-server"
   "plugin_morph_context7"
-  "plugin_devops_aws-documentation"
   "plugin_devops-core_context7"
   "plugin_devops-core_aws-documentation"
   "headroom"
