@@ -262,7 +262,7 @@ step "Headroom and skills"
 pin_tool() {
   local name="$1" version="$2" extras="${3:-}" probe="${4:-}" have spec py
   spec="$name==$version"
-  [ -n "$extras" ] && spec="$name[$extras]==$version"
+  [ -n "$extras" ] && spec="${name}[${extras}]==${version}"
   have=$(uv tool list 2>/dev/null | awk -v n="$name" '$1 == n { sub(/^v/, "", $2); print $2 }')
   if [ "$have" = "$version" ]; then
     [ -n "$probe" ] || return 1
