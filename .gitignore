@@ -1,3 +1,4 @@
 .env
 .serena/
 .claude/plans/
+.claude/worktrees/
