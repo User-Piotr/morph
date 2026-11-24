@@ -29,6 +29,9 @@ jobs:
       - name: pinned versions match versions.env
         run: bash claude/tests/versions.sh
 
+      - name: team plugin template
+        run: bash claude/tests/template.sh
+
   plugin:
     runs-on: ubuntu-latest
     steps:
@@ -43,6 +46,8 @@ jobs:
           claude plugin validate .
           claude plugin validate plugins/morph
           claude plugin validate plugins/devops
+          claude plugin validate templates/team-marketplace
+          claude plugin validate templates/team-marketplace/plugins/grafana
 
   versions:
     # A plugin change that keeps its version is invisible to machines on the
