@@ -37,6 +37,7 @@ Also run `tflint` and `trivy config .` when the repository uses them.
 Providers talk to Terraform over a Unix socket, which the sandbox blocks. The read commands (`init`, `validate`, `plan`, `fmt`, `providers`, `show`, `output`, `version`, `graph`, `state list`, `state show`) are therefore excluded from the sandbox in settings and allowed without a prompt — but only when the call is that one command:
 
 - `cd` into the directory in one Bash call, then run `terraform validate` in the next; the working directory carries over. `cd dir && terraform validate`, `terraform -chdir=dir …`, pipes, redirects and `$(…)` keep the call sandboxed, and it fails.
+- The working directory carries over only inside the session's own directories. A `cd` outside them is reset after the call ("Shell cwd was reset"), so the next `terraform` runs in the wrong place. When the module lives in a repository the session was not started in, do not work around it: ask the user to add it with `/add-dir <repository>`, or to start the session there, and name the validation as open until then.
 - If it still fails with `plugin failed to negotiate the initial go-plugin protocol handshake`, the setup is missing that exclusion: report it, hand the user the command, and name the validation as still open. Do not retry it with the sandbox disabled.
 
 `terraform init` leaves an untracked `.terraform/` directory; mention it rather than committing or deleting it.
