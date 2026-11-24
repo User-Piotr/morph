@@ -46,7 +46,10 @@
       "Edit(~/.bashrc)",
       "Edit(~/.gitconfig)",
       "Read(**/.env)",
-      "Edit(**/.env)"
+      "Edit(**/.env)",
+      "Edit(~/.claude/settings.json)",
+      "Edit(~/.claude/settings.personal.json)",
+      "Edit(~/.claude/.settings.generated.json)"
     ],
     "ask": [
       "Bash(terraform apply *)",

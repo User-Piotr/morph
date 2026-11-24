@@ -18,8 +18,9 @@ Restart Claude Code. Sessions start as **Morph**, the core agent.
 
 Domain knowledge comes from plugins. `devops` (Terraform, Helm, Kubernetes,
 AWS) is on; switch domains on or off in `/plugin`. A domain applies in every
-repository, to Morph or any other agent. A switch changes one line in
-`claude/settings.json`; commit it to make it the default.
+repository, to Morph or any other agent. A switch is personal: the next
+`./install.sh` keeps it in `~/.claude/settings.personal.json`, outside this
+repository. To change the default for everyone, edit `claude/settings.json`.
 
 ## What you get
 

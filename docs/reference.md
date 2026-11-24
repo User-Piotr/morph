@@ -12,9 +12,10 @@ plugin of its own instead of a fork.
 
 Domain plugins are off by default in the marketplace; this repository's
 `settings.json` switches `devops` on. Switch any of them in `/plugin`.
-The switch is global and applies in every repository. It lands in the tracked
-`claude/settings.json` as a one-line change to `enabledPlugins`: commit it to
-share the choice, or leave it as a local difference.
+The switch is global and applies in every repository. It is written to
+`~/.claude/settings.json`, which is generated, so the next `./install.sh` moves
+it into your personal overlay `~/.claude/settings.personal.json`; the tracked
+`claude/settings.json` stays untouched. To share a choice, edit the template.
 
 ## Install
 
@@ -27,7 +28,19 @@ cp .env.example .env    # optional: CONTEXT7_API_KEY
 
 Clone somewhere permanent. `install.sh` symlinks the policy files into
 `~/.claude`, so the clone *is* the installed policy; a clone under `/tmp` leaves
-dangling links after the next reboot. It also installs `morph` and `devops` from
+dangling links after the next reboot. `settings.json` is the exception: it is
+a regular file that `install.sh` generates from the tracked `claude/settings.json`
+plus `~/.claude/settings.personal.json`, an overlay that stays on the machine and
+out of the repository. Objects merge deeply, arrays are the union (template
+first), and a scalar in the overlay wins. Changes made since the last run
+(`claude plugin …`, `/plugin`, `/config`) are folded into the overlay on the next
+`./install.sh`, key by key in its log, so the repository stays clean. A change to
+the template needs `./install.sh` to reach `~/.claude/settings.json`, so run it
+after every `git pull`. A key you delete from `settings.json` is not deleted from
+the overlay, and an overlay cannot remove a key of the template. The first run
+on a machine that still has the old symlink moves any uncommitted edits of
+`claude/settings.json` into the overlay and restores the file; the previous
+files are kept in `~/.claude/.config-backup/`. It also installs `morph` and `devops` from
 GitHub (`devops` is switched on by this repository's `settings.json`) and, when
 `.env` has a key, stores it as `morph`'s context7 option. Restart Claude Code
 after the first install.
@@ -43,7 +56,7 @@ registrations the plugins replace. If it stopped halfway, finish by hand:
 claude plugin uninstall devops-core@morph
 claude plugin install morph@morph
 claude plugin install devops@morph
-git checkout claude/settings.json
+./install.sh
 ```
 
 Agents are renamed: `devops-core:devops` is now `morph:morph`,
@@ -66,8 +79,8 @@ keeps its name.
 
 ### Moving or renaming the clone
 
-Close every Claude Code session first. `install.sh` symlinks `~/.claude`
-into the clone, so moving it breaks the links under a running session: it
+Close every Claude Code session first. `install.sh` symlinks the policy files
+in `~/.claude` into the clone, so moving it breaks the links under a running session: it
 silently loses the mutation guards, the sandbox and commit attribution, and
 keeps working without them. After the move, run `./install.sh` from the new
 path to relink, then start a new session.
@@ -120,7 +133,8 @@ plugins/devops/            the DevOps domain plugin (depends on morph, off by de
   hooks/, scripts/         brief.sh, run at SessionStart and SubagentStart
 claude/                    policy, linked into ~/.claude
   install.sh               links policy, installs the plugins
-  settings.json            model, sandbox, permissions, guard hooks, enabled plugins
+  settings.json            template for ~/.claude/settings.json: model, sandbox, permissions, guard hooks, enabled plugins
+  settings-lib.sh          merge, drift fold and migration behind the generated settings.json
   CLAUDE.md                global instructions; graphify writes its block here
   scripts/                 mutation guards for Bash and MCP
   tests/                   guards.sh, the table the guards are checked against
@@ -197,8 +211,8 @@ Traffic reaches the Headroom proxy only in sessions started with
 its routing to the repository's untracked `.claude/settings.local.json` and
 removes it when the session ends, leaving only a selfheal hook that clears a
 dead proxy's address after a crash. Do not run `headroom init` in either form:
-`--global` writes the routing into `~/.claude/settings.json`, which is this
-repository's tracked file, and the local form adds hooks and a plugin to the
+`--global` writes the routing into `~/.claude/settings.json`, where the next
+`./install.sh` would fold one machine's paths into the overlay, and the local form adds hooks and a plugin to the
 project that `wrap` does not need.
 
 `investigator` and `implementer` list what they may not use
@@ -255,15 +269,17 @@ building and refreshing, including the shared multi-repository graph:
 
 ## Editing
 
-The policy files in `~/.claude` are symlinks, so changes flow both ways: an edit
-to `claude/` is live, and a change made through `/config` shows up as a
-`git diff`. A new guard script needs `./install.sh` to be linked.
+`CLAUDE.md` and the guard scripts in `~/.claude` are symlinks, so an edit to
+`claude/` is live for them. A new guard script needs `./install.sh` to be linked.
 
-So does a plugin command: `claude plugin marketplace add` and
-`claude plugin install` at user scope rewrite `settings.json` (keys reordered,
-`"opus"` normalised to `"opus[1m]"`) even when it already declares everything.
-`install.sh` writes the file back; after a manual `/plugin install`, restore it
-with `git checkout claude/settings.json`.
+`settings.json` is not: an edit to `claude/settings.json` needs `./install.sh`.
+`claude plugin marketplace add` and `claude plugin install` at user scope
+rewrite `~/.claude/settings.json` (keys reordered, `"opus"` normalised to
+`"opus[1m]"`) even when it already declares everything; `install.sh` generates
+the file again after its own plugin commands, so that noise never reaches the
+overlay. Your own `/plugin` and `/config` changes do, on the next `./install.sh`.
+Do not edit `~/.claude/settings.json`, `settings.personal.json` or
+`.settings.generated.json` from an agent session; the template denies it.
 
 The plugin is installed from GitHub, so edits under `plugins/` reach a machine
 only after they are merged. To try them first, load the working copy for one
