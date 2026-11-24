@@ -48,6 +48,6 @@ This vocabulary is the team's: apply it even where a repository's own history pr
 - Target the branch you started from. Promotion between long-lived branches — `qa` into `master` — is a release step and stays with the user.
 - Title is the branch's intent, in the same style as a commit subject.
 - Body is empty or one line. Link the plan artifact when one exists.
-- Open it with `gh pr create` on a GitHub remote; on an Azure DevOps remote use the ADO MCP server, or `az repos pr create` when it is unavailable.
+- Open it with `gh pr create` on a GitHub remote; on an Azure DevOps remote use the ADO MCP server.
 - `git push` and opening a pull request need the user's confirmation every time. Name what lands where, then run it.
-- Report the checks — `gh pr checks`, or `az repos pr show` on ADO — and hand the merge to the user.
+- Report the checks — `gh pr checks`, or the ADO MCP server on ADO — and hand the merge to the user.
