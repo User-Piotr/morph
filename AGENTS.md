@@ -11,8 +11,7 @@ where and why.
 - Plans live in `.claude/plans/`, which is git-ignored, and are never committed.
 
 ### Publishing
-- `git push` here authenticates as User-Piotr through the repository's own credential helper, but `gh` acts as its active (company) account; run every `gh` write as `GH_TOKEN=$(gh auth token -u User-Piotr) gh …`.
-- `gh pr edit` fails here with a Projects (classic) GraphQL deprecation error; change a pull request's title or body with `gh api -X PATCH repos/User-Piotr/morph/pulls/<n> -f body=…`.
+- Machine-specific publishing details (which account, which credential helper) belong in your own `CLAUDE.local.md`, which is git-ignored; start it with `@AGENTS.md` so this file still loads.
 - Tag a release from `origin/main` after `git fetch`, never from a local `main` that may not have pulled: `git tag vX.Y.Z origin/main`, then push the tag and `vX.Y.Z:refs/heads/stable`.
 
 ### Settings
