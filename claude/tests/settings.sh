@@ -34,7 +34,7 @@ CONF_DIR="" CLAUDE_HOME="" BACKUP_DIR=""
 # A fresh fixture: a git repository whose claude/settings.json is the template,
 # and an empty config directory.
 fixture() {
-  rm -rf "$T/repo" "$T/home"
+  rm -rf "${T:?}/repo" "${T:?}/home"
   mkdir -p "$T/repo/claude" "$T/home"
   CONF_DIR="$T/repo/claude"; CLAUDE_HOME="$T/home"; BACKUP_DIR="$T/home/.config-backup/t"
   cat > "$CONF_DIR/settings.json" <<'JSON'
