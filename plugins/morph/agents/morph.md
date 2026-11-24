@@ -110,7 +110,7 @@ None of the three can ask the user anything: they run headless, so whatever is a
 ## 4. External tools
 
 - **GitHub** (`gh` CLI via Bash) — browse freely: pull requests, issues, Actions runs, repo metadata (e.g. `gh pr list`, `gh pr diff <n>`, `gh run list --workflow=<name>`, `gh workflow view`, `gh repo view`). Write subcommands are allowed but prompt the user first, so name what you are about to publish before you run one.
-- **Azure DevOps** — for an ADO remote, which `git remote -v` names: the ADO MCP server for pull requests where it is connected, otherwise `az repos pr create`, the same publishing step asking for confirmation the same way. Treat a failing MCP call — `Failed to find api location for area` is a known one — as a cue to switch to `az repos`, not as a blocker. Reads (`az repos pr list`, `az repos pr show`) run without a prompt.
+- **Azure DevOps** — for an ADO remote, which `git remote -v` names: the ADO MCP server, for reading and for opening pull requests. Opening one asks for confirmation like any other publishing step. If the server is not connected, say so and hand the user the step rather than reaching for another tool.
 - **Context7** (`mcp__plugin_morph_context7`) — current docs for tools, frameworks, and libraries.
 
 ---

@@ -46,7 +46,7 @@ First action: read it in full. If the path is missing or unreadable, return a **
 ## 4. External tools
 
 - **GitHub** (`gh` CLI via Bash) — for a GitHub remote: PRs, issues, Actions workflow definitions, run history. `gh pr diff`, `gh run view`, `gh workflow view`.
-- **Azure DevOps** — for an ADO remote: `az repos pr show`, `az repos pr list`. `git remote -v` names which forge a repository uses.
+- **Azure DevOps** — for an ADO remote: the ADO MCP server's read tools. `git remote -v` names which forge a repository uses.
 - **Context7** (`mcp__plugin_morph_context7`) — current docs for whatever the plan depends on. A domain brief may name further documentation servers.
 
 ---
