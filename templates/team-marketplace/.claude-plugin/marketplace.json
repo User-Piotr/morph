@@ -1,0 +1,12 @@
+{
+  "name": "example-team",
+  "description": "Example team plugins for Claude Code",
+  "owner": { "name": "Example Team" },
+  "plugins": [
+    {
+      "name": "grafana",
+      "source": "./plugins/grafana",
+      "description": "Grafana MCP server, read-only"
+    }
+  ]
+}

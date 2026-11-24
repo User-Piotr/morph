@@ -342,70 +342,13 @@ suggests it past 5 pending entries or ~60 bullets / ~8 KB, and runs nothing.
 
 ## Your own plugin
 
-A team adds its own domain as a plugin that depends on `morph`, in a marketplace
-of its own (any git host the team can clone from). Nothing in this repository
-changes. `devops` is the model to copy: skills for the knowledge, an optional
-MCP server, and two hooks that inject a short brief. Example: Grafana for
-investigation.
-
-```
-team-plugins/                          the team's marketplace repository
-  .claude-plugin/marketplace.json      list the plugin with "defaultEnabled": false
-  plugins/team/
-    .claude-plugin/plugin.json
-    hooks/hooks.json                   SessionStart and SubagentStart -> scripts/brief.sh
-    scripts/brief.sh
-    skills/grafana-triage/SKILL.md
-```
-
-`plugin.json` declares the dependency, asks each user for the URL and token, and
-defines the server:
-
-```json
-{
-  "name": "team",
-  "dependencies": ["morph@morph"],
-  "userConfig": {
-    "grafana_url":   { "type": "string", "title": "Grafana URL" },
-    "grafana_token": { "type": "string", "title": "Grafana token", "sensitive": true }
-  },
-  "mcpServers": {
-    "grafana": {
-      "command": "mcp-grafana",
-      "env": {
-        "GRAFANA_URL": "${user_config.grafana_url}",
-        "GRAFANA_API_KEY": "${user_config.grafana_token}"
-      }
-    }
-  }
-}
-```
-
-The skill carries what the agent cannot guess: which dashboards and data sources
-matter for which symptom. Its `description` decides whether it is picked, so name
-the symptoms — "Use when investigating latency, error rates, pod restarts or
-alerts" — not just the tool.
-
-`brief.sh` is what makes the agents use the skill. Registered for both events in
-`hooks/hooks.json`, it reads `hook_event_name` from stdin and prints
-`{"hookSpecificOutput": {"hookEventName": <event>, "additionalContext": <brief>}}`.
-Keep the brief under about 15 lines: what the domain is, what counts as a live
-system, which skills to load and when ("before any Grafana query load
-`team:grafana-triage`"), and which documentation servers exist. `morph` and its
-subagents treat it as binding. See `plugins/devops/scripts/brief.sh`.
-
-`morph:investigator` inherits the server's tools and is told to look for a skill
-covering the system under investigation. Read-shaped tool names
-(`search_*`, `get_*`, `query_*`, `list_*`) pass the MCP guard; write-shaped ones
-ask in the main session and are denied to subagents. A server whose tools do not
-read that way (`generate_deeplink`) can be trusted wholesale without a pull
-request here: ship `.claude-plugin/read-only-servers.json` listing it, and users
-who trust your marketplace in `MORPH_TRUSTED_MARKETPLACES` get it; others list it
-in `MORPH_READ_ONLY_SERVERS`. See "Trusting more servers" above.
-
-Each user adds the marketplace and switches the plugin on with
-`/plugin marketplace add`, `/plugin install` and `/plugin`. The switch is
-global: the brief applies in every repository while the plugin is on.
+A team adds its own MCP server, brief and knowledge as a plugin in a private
+marketplace of its own; nothing in this repository changes, and the plugin needs
+no dependency on morph. Subagents inherit its tools, the guard judges them by
+name, and a brief hook tells the agents when to use them.
+[`docs/your-plugin.md`](your-plugin.md) is the guide, with a read-only Grafana
+server as the worked example; the copyable files are in
+[`templates/team-marketplace/`](../templates/team-marketplace/), validated in CI.
 
 ## Gateway or Bedrock
 
