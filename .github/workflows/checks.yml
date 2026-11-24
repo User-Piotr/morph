@@ -23,6 +23,9 @@ jobs:
       - name: guard tests
         run: bash claude/tests/guards.sh
 
+      - name: settings.json generator tests
+        run: bash claude/tests/settings.sh
+
       - name: pinned versions match versions.env
         run: bash claude/tests/versions.sh
 

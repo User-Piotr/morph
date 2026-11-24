@@ -10,6 +10,8 @@ BACKUP_DIR="$CLAUDE_HOME/.config-backup/$(date +%Y%m%d-%H%M%S)"
 # Every pinned third-party version lives in versions.env at the repository root.
 # shellcheck source=../versions.env
 . "$CONF_DIR/../versions.env"
+# shellcheck source=settings-lib.sh
+. "$CONF_DIR/settings-lib.sh"
 
 log()  { printf '  %s\n' "$*"; }
 step() { printf '\n%s\n' "$*"; }
@@ -26,16 +28,20 @@ link() {
 }
 
 step "Linking config"
-# Only policy is linked: the global instructions, the settings, and the two
-# mutation guards. Agents, skills and the learnings loop ship in the
+# Policy is linked: the global instructions and the two mutation guards.
+# settings.json is generated, not linked (below). Agents, skills and the learnings loop ship in the
 # morph plugin (../plugins/morph); the DevOps knowledge in the devops plugin
 # (../plugins/devops). Both are installed below.
 link "$CONF_DIR/CLAUDE.md"                 CLAUDE.md
-link "$CONF_DIR/settings.json"             settings.json
 for f in "$CONF_DIR"/scripts/*.sh; do
   link "$f" "scripts/$(basename "$f")"
   chmod +x "$f"
 done
+
+# settings.json is a regular file generated from claude/settings.json plus
+# ~/.claude/settings.personal.json, which stays out of the repository. Changes
+# Claude Code made to it since the last run are folded into the overlay first.
+settings_sync
 
 # Earlier versions linked agents/, skills/, docs/ and the learnings scripts from
 # this directory. Those files moved into the plugin, so their links now point
@@ -77,26 +83,17 @@ OLD_MARKETPLACE="agent-config"
 
 # `claude plugin marketplace add` and `claude plugin install` at user scope
 # rewrite ~/.claude/settings.json — keys reordered, "opus" turned into
-# "opus[1m]" — even when settings.json already declares the marketplace and
-# enables the plugin, which it does. That file is this repository's, so its
-# bytes are saved first and written back through the symlink afterwards.
+# "opus[1m]" — even when it already declares the marketplace and enables the
+# plugin, which it does. That is noise, not a choice, so the file is generated
+# again after the plugin commands instead of being folded into the overlay.
 # `marketplace update` and `plugin update` do not write it.
-SAVED="$(mktemp)"
-cp "$CONF_DIR/settings.json" "$SAVED"
-# Write the bytes back to the repository file, then relink: if a command
-# replaced the symlink with a regular file, link() moves that file to the
-# backup directory and points ~/.claude/settings.json at the repository again.
-restore_settings() {
-  cat "$SAVED" > "$CONF_DIR/settings.json"
-  [ -L "$CLAUDE_HOME/settings.json" ] || link "$CONF_DIR/settings.json" settings.json
-}
 
 plugin_present() { claude plugin list 2>/dev/null | grep -qF "$1"; }
 
 # One-time migration from the agent-config marketplace; devops goes first
 # because it depends on morph. Whether devops was on cannot be carried over:
-# settings.json is the repository's file, so the pull that brought this script
-# already replaced the old plugin ids. The message below says how to switch it on.
+# the pull that brought this script already replaced the old plugin ids in the
+# template. The message below says how to switch it on.
 if claude plugin marketplace list 2>/dev/null | grep -qw "$OLD_MARKETPLACE"; then
   for p in "devops@$OLD_MARKETPLACE" "morph@$OLD_MARKETPLACE" "devops-core@$OLD_MARKETPLACE"; do
     plugin_present "$p" && claude plugin uninstall "$p" >/dev/null && log "uninstalled $p"
@@ -172,8 +169,7 @@ else
   log "no CONTEXT7_API_KEY in .env — context7 runs unauthenticated (lower rate limit)"
 fi
 
-restore_settings
-rm -f "$SAVED"
+settings_generate
 PLUGIN_STATE="$(claude plugin list 2>/dev/null | grep -A4 -F "$CORE" || true)"
 case "$PLUGIN_STATE" in
   *enabled*) log "$CORE enabled" ;;
@@ -184,7 +180,7 @@ case "$(claude plugin list 2>/dev/null | grep -A4 -F "$DOMAIN" || true)" in
   *"Status: ✔"*) log "$DOMAIN enabled — switch it off in /plugin if you do not need it" ;;
   *)             log "$DOMAIN is installed but off. Switch it on in /plugin, or: claude plugin enable $DOMAIN" ;;
 esac
-log "(switching a plugin changes one line, enabledPlugins, in claude/settings.json — commit it or leave it)"
+log "(a plugin you switch later is kept in ~/.claude/settings.personal.json by the next ./install.sh)"
 
 # The plugins now provide context7 and aws-documentation. The user-scope copies
 # earlier versions registered would run beside them (and an identical one hides
@@ -245,8 +241,8 @@ step "Headroom and skills"
 # routing and keeps the selfheal hook, which clears a dead proxy's address.
 #
 # `headroom init --global claude` is deliberately not run. It writes the same
-# routing permanently into ~/.claude/settings.json, which is a symlink to this
-# repo, so every install would dirty the tracked file with one machine's paths.
+# routing permanently into ~/.claude/settings.json, where the next install
+# would fold one machine's paths into settings.personal.json.
 # There is no user-level settings.local.json to send it to instead: Claude Code
 # reads that file only as the local settings of the project it was started in.
 #
